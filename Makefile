@@ -15,6 +15,20 @@ all: build
 
 # --- Docker Targets ---
 
+install:
+	@echo "⚙️ Installing system dependencies (GUI libs & Java)..."
+	@sudo apt update
+	@sudo apt install -y libxext6 libxrender1 libxtst6 openjdk-17-jdk
+	@echo "⬇️ Downloading Nashorn & its ASM dependencies..."
+	@mkdir -p ./lib
+	@curl -L -o ./lib/nashorn-core.jar https://repo.maven.apache.org/maven2/org/openjdk/nashorn/nashorn-core/15.4/nashorn-core-15.4.jar
+	@curl -L -o ./lib/asm.jar https://repo.maven.apache.org/maven2/org/ow2/asm/asm/7.3.1/asm-7.3.1.jar
+	@curl -L -o ./lib/asm-util.jar https://repo.maven.apache.org/maven2/org/ow2/asm/asm-util/7.3.1/asm-util-7.3.1.jar
+	@curl -L -o ./lib/asm-commons.jar https://repo.maven.apache.org/maven2/org/ow2/asm/asm-commons/7.3.1/asm-commons-7.3.1.jar
+	@curl -L -o ./lib/asm-tree.jar https://repo.maven.apache.org/maven2/org/ow2/asm/asm-tree/7.3.1/asm-tree-7.3.1.jar
+	@curl -L -o ./lib/asm-analysis.jar https://repo.maven.apache.org/maven2/org/ow2/asm/asm-analysis/7.3.1/asm-analysis-7.3.1.jar
+	@echo "✅ Dependencies installed."
+
 build:
 	@echo "🏗️ Building Docker image: $(IMAGE_NAME):$(IMAGE_TAG)..."
 	@docker build -t $(IMAGE_NAME):$(IMAGE_TAG) .
@@ -38,9 +52,23 @@ stop:
 	@echo "🛑 Stopping container: $(CONTAINER_NAME)..."
 	@docker stop $(CONTAINER_NAME) || true
 
+run-local:
+	@java -cp ./release/app.jar:./projects/tmp:./lib/* ch.technokrat.gecko.GeckoSim
+
 export:
-	@echo "📦 Exporting build artifacts to ./dist..."
-	@DOCKER_BUILDKIT=1 docker build --target build --output type=local,dest=./dist .
+	@echo "📦 Generating standalone JAR for native execution..."
+	@mkdir -p ./release
+	# 1. Build the image for the 'build' stage and tag it temporarily
+	@docker build --target build -t $(IMAGE_NAME)-build-temp . > /dev/null
+	# 2. Create a temporary container from the build stage image
+	@docker create --name artifact-extractor $(IMAGE_NAME)-build-temp > /dev/null
+	# 3. Copy the specific JAR file out of the container to the host's ./release folder
+	@docker cp artifact-extractor:/app/target/app.jar ./release/
+	# 4. Clean up: remove the temporary container and image
+	@docker rm artifact-extractor > /dev/null
+	@docker rmi $(IMAGE_NAME)-build-temp > /dev/null
+	@echo "✅ JAR successfully extracted to ./release/app.jar"
+	@echo "Note: To run natively on Ubuntu, ensure OpenJDK 17 or higher is installed."
 
 ls:
 	@echo "--- 📂 Listing files in $(CONTAINER_PROJECT_DIR) (inside container $(CONTAINER_NAME)) ---"

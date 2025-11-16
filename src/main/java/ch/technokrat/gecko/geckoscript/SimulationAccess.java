@@ -43,13 +43,7 @@ public class SimulationAccess implements GeckoFileable {
         se = SchematischeEingabe2.Singleton;
         mainWindow = fenster;
         assert mainWindow != null;
-        try {
-            scriptwindow = new ScriptWindow(this);
-
-        } catch (Throwable ex) {
-            System.out.println("Could not find editor library jsyntaxpane.jar. Scripting tool disabled.");
-            // ex.printStackTrace();
-        }
+        scriptwindow = new ScriptWindow(this);
 
     }
 

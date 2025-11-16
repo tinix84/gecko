@@ -4,11 +4,7 @@
 FROM maven:3-jdk-13 AS build
 
 WORKDIR /app
-
-# Copy the pom.xml first to leverage Docker layer caching
 COPY pom.xml .
-
-# Copy source code and build the JAR
 COPY src /app/src
 RUN mvn clean package -DskipTests
 
@@ -17,21 +13,19 @@ RUN mvn clean package -DskipTests
 # -------------------------------------------------------------------------
 FROM adoptopenjdk/openjdk13:ubi
 
-# Install necessary X11 dependencies for GUI rendering (libXext, libXrender, libXtst)
-RUN yum install -y libXext libXrender libXtst
+# Install necessary X11 dependencies using YUM (the package manager for UBI)
+# Note: openjdk13 is already included in the base image.
+RUN yum install -y libXext libXrender libXtst && \
+    yum clean all
 
 # Set the primary working directory
 WORKDIR /app
 
-# Create the specific directory needed for project files and 
-# dynamically compiled Java Block classes (as specified in the Makefile mount).
+# Create the specific directory needed for project files and compiled classes.
 RUN mkdir -p /app/projects/tmp
 
 # Copy the final application JAR from the build stage
 COPY --from=build /app/target/app.jar /app/app.jar
 
 # Define the command to run the application.
-# -cp (classpath) includes app.jar AND the temporary directory (/app/projects/tmp)
-# to fix the ClassNotFoundException for dynamically compiled code (tmpJav...).
-# This entrypoint is crucial for dynamic class loading in the complex environment.
 ENTRYPOINT ["java", "-cp", "app.jar:/app/projects/tmp", "ch.technokrat.gecko.GeckoSim"]
