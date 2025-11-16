@@ -3,6 +3,8 @@ build/
 target/
 javadoc/
 dist/
+release/
+lib/
 
 # Eclipse/VSCode stuff
 .classpath
